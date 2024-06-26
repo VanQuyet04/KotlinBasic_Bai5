@@ -1,9 +1,11 @@
 package com.example.kotlinbasic_bai5
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,37 +15,63 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity() {
+@SuppressLint("NotConstructor")
+class TaskListScreen : ComponentActivity() {
 
     private lateinit var taskRepository: TaskRepository
+    private lateinit var taskList: MutableState<List<Task>>
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         taskRepository = TaskRepository(contentResolver)
+        taskList = mutableStateOf(emptyList())
 
         setContent {
-            TaskListScreen(taskRepository = taskRepository)
+            TaskListScreen(taskList = taskList.value)
         }
     }
 
-    @SuppressLint("MutableCollectionMutableState")
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun onResume() {
+        super.onResume()
+        loadTasks()
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun loadTasks() {
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            val tasks = taskRepository.getAllTasks()
+            taskList.value = tasks
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
     @Composable
-    fun TaskListScreen(taskRepository: TaskRepository) {
+    fun TaskListScreen(taskList: List<Task>) {
+        Column {
+            Text(
+                text = "Task List",
+                modifier = Modifier.padding(16.dp),
+                textDecoration = TextDecoration.Underline,
+                textAlign = TextAlign.Center,
+                fontSize = 24.sp
+            )
+            TaskList(taskList = taskList)
 
-        var taskList by remember {
-            mutableStateOf<List<Task>>(emptyList())
         }
-
-        LaunchedEffect(key1 = Unit) {
-            taskList = taskRepository.getAllTasks()
-        }
-
-        TaskList(taskList = taskList)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     @Composable
     fun TaskList(taskList: List<Task>) {
         LazyColumn {
@@ -53,6 +81,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     @Composable
     fun TaskItem(task: Task) {
         Card(
@@ -64,18 +93,17 @@ class MainActivity : ComponentActivity() {
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
+
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Name: ${task.name}",
                     textAlign = TextAlign.Start
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Datetime: ${task.datetime}",
-                    textAlign = TextAlign.Start
+                    text = task.datetime, textAlign = TextAlign.Start
                 )
             }
         }
     }
-
 }

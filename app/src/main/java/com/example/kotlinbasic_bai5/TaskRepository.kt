@@ -1,7 +1,6 @@
 package com.example.kotlinbasic_bai5
 
 import android.content.ContentResolver
-import android.util.Log
 
 class TaskRepository(private val contentResolver: ContentResolver) {
 

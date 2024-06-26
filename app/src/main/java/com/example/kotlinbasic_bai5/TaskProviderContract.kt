@@ -1,10 +1,6 @@
 package com.example.kotlinbasic_bai5
-
-import android.content.ContentResolver
-import android.database.Cursor
 import android.net.Uri
 import android.provider.BaseColumns
-import android.util.Log
 
 object TaskProviderContract {
     const val AUTHORITY = "com.example.task-provider"
