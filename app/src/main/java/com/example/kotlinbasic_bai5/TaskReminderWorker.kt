@@ -31,23 +31,26 @@ class TaskReminderWorker(appContext: Context, params: WorkerParameters) :
         val tasks = taskRepository.getAllTasks()
 
         val now = LocalDateTime.now()
-        val nextTask = tasks.filter {
-            LocalDateTime.parse(it.datetime, Task.dateTimeFormatter).isAfter(now)
-        }.minByOrNull {
+
+        // Filter tasks that are scheduled after current time on the same day
+        val upcomingTasks = tasks.filter {
+            val taskDateTime = LocalDateTime.parse(it.datetime, Task.dateTimeFormatter)
+            taskDateTime.toLocalDate() == now.toLocalDate() && taskDateTime.isAfter(now)
+        }
+
+        // Sort tasks by datetime ascending
+        val sortedTasks = upcomingTasks.sortedBy {
             LocalDateTime.parse(it.datetime, Task.dateTimeFormatter)
         }
 
-        if (nextTask != null) {
-            val taskDateTime = LocalDateTime.parse(nextTask.datetime, Task.dateTimeFormatter)
-            val duration = Duration.between(now, taskDateTime)
-            val minutesUntilTask = duration.toMinutes()
-
+        if (sortedTasks.isEmpty()) {
+            // If no upcoming tasks, show a general reminder
             createNotificationChannel()
 
-            val notificationBuilder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            val generalNotificationBuilder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("Task Reminder")
-                .setContentText("Next task '${nextTask.name}' in $minutesUntilTask minutes")
+                .setContentText("Check your tasks daily!")
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
 
             with(NotificationManagerCompat.from(applicationContext)) {
@@ -58,7 +61,33 @@ class TaskReminderWorker(appContext: Context, params: WorkerParameters) :
                 ) {
                     return
                 }
-                notify(NOTIFICATION_ID, notificationBuilder.build())
+                notify(NOTIFICATION_ID, generalNotificationBuilder.build())
+            }
+        } else {
+            // Create notifications for each upcoming task
+            createNotificationChannel()
+
+            sortedTasks.forEachIndexed { index, task ->
+                val taskDateTime = LocalDateTime.parse(task.datetime, Task.dateTimeFormatter)
+                val duration = Duration.between(now, taskDateTime)
+                val minutesUntilTask = duration.toMinutes()
+
+                val notificationBuilder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle("Task Reminder")
+                    .setContentText("Task '${task.name}' in $minutesUntilTask minutes")
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+
+                with(NotificationManagerCompat.from(applicationContext)) {
+                    if (ActivityCompat.checkSelfPermission(
+                            applicationContext,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        return
+                    }
+                    notify(NOTIFICATION_ID + index, notificationBuilder.build())
+                }
             }
         }
     }
@@ -91,7 +120,7 @@ class TaskReminderWorker(appContext: Context, params: WorkerParameters) :
                 repeatIntervalTimeUnit = TimeUnit.DAYS
             )
                 .setConstraints(constraints)
-                .setInitialDelay(calculateDelayToNext23_10(), TimeUnit.MILLISECONDS) // Delay đến 23:10
+                .setInitialDelay(calculateDelayToNext(), TimeUnit.MILLISECONDS)
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -101,12 +130,12 @@ class TaskReminderWorker(appContext: Context, params: WorkerParameters) :
             )
         }
 
-        private fun calculateDelayToNext23_10(): Long {
+        private fun calculateDelayToNext(): Long {
             val now = System.currentTimeMillis()
             val calendar = Calendar.getInstance().apply {
                 timeInMillis = now
-                set(Calendar.HOUR_OF_DAY, 18)
-                set(Calendar.MINUTE, 1)
+                set(Calendar.HOUR_OF_DAY, 6)
+                set(Calendar.MINUTE, 0)
                 set(Calendar.SECOND, 0)
                 if (timeInMillis <= now) {
                     add(Calendar.DAY_OF_MONTH, 1)
