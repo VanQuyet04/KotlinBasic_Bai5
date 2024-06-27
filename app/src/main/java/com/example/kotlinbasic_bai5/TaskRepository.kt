@@ -24,6 +24,4 @@ class TaskRepository(private val contentResolver: ContentResolver) {
 
         return tasks
     }
-
-
 }
