@@ -16,6 +16,7 @@ import java.time.Duration
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
+
 class TaskReminderWorker(appContext: Context, params: WorkerParameters) :
     Worker(appContext, params) {
 
@@ -32,13 +33,12 @@ class TaskReminderWorker(appContext: Context, params: WorkerParameters) :
 
         val now = LocalDateTime.now()
 
-        // Filter tasks that are scheduled after current time on the same day
         val upcomingTasks = tasks.filter {
             val taskDateTime = LocalDateTime.parse(it.datetime, Task.dateTimeFormatter)
             taskDateTime.toLocalDate() == now.toLocalDate() && taskDateTime.isAfter(now)
         }
 
-        // Sort tasks by datetime ascending
+        // Sort tasks by datetime
         val sortedTasks = upcomingTasks.sortedBy {
             LocalDateTime.parse(it.datetime, Task.dateTimeFormatter)
         }
@@ -110,22 +110,25 @@ class TaskReminderWorker(appContext: Context, params: WorkerParameters) :
         private const val CHANNEL_ID = "task_reminder_channel"
         private const val NOTIFICATION_ID = 1
 
+        // lên lịch của task
         fun scheduleReminder(context: Context) {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
 
+            // tạo request bằng Periodic( công việc định kì)
             val taskReminderRequest = PeriodicWorkRequestBuilder<TaskReminderWorker>(
-                repeatInterval = 1, // Repeat daily
+                repeatInterval = 1,
                 repeatIntervalTimeUnit = TimeUnit.DAYS
             )
                 .setConstraints(constraints)
                 .setInitialDelay(calculateDelayToNext(), TimeUnit.MILLISECONDS)
                 .build()
 
+            // thêm vào work manager
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 "task_reminder",
-                ExistingPeriodicWorkPolicy.REPLACE,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 taskReminderRequest
             )
         }
